@@ -2,6 +2,7 @@ import pygame
 from pygame.locals import *
 import time
 import random
+from collections import deque
 
 SIZE = 40
 BACKGROUND_COLOR = (105, 163, 47)
@@ -21,6 +22,7 @@ class Apple:
         self.x = random.randint(0,23)*SIZE
         self.y = random.randint(0,18)*SIZE
 
+
 class Snake:
     def __init__(self, parent_screen, length):
         self.parent_screen = parent_screen
@@ -28,8 +30,7 @@ class Snake:
         self.length = length
         self.x = [random.randint(0, 24) * SIZE] * length
         self.y = [random.randint(0, 19) * SIZE] * length
-        self.direction = "down"
-        
+        self.direction = random.choice(["down", "up", "left", "right"])
 
     def draw(self):
         self.parent_screen.fill(BACKGROUND_COLOR)
@@ -63,8 +64,9 @@ class Snake:
         if self.direction == "right":
             self.x[0] += SIZE
         
-        self.x[0] %= 1000 
-        self.y[0] %= 800
+        #Allows Snake to go through walls
+        # self.x[0] %= 1000 
+        # self.y[0] %= 800
         
         self.draw()
 
@@ -73,6 +75,7 @@ class Snake:
         self.x.append(-1)
         self.y.append(-1)
 
+    
 
 class Game:
     def __init__(self) -> None:
@@ -83,19 +86,123 @@ class Game:
         self.snake.draw()
         self.apple = Apple(self.surface)
         self.apple.draw()
+        self.is_algorithm_mode = "manual"  # Default to user control
+        self.start_game_mode()  # Prompt for mode selection at the start
+
     
+
     def is_collision(self, x1, y1, x2, y2):
         if x1 >= x2 and x1 < x2 + SIZE:
             if y1 >= y2 and y1 < y2 + SIZE:
                 return True
         return False
 
+    def heuristic(self, snake_x, snake_y, apple_x, apple_y):
+        """Calculate Manhattan distance between the snake's head and the apple."""
+        return abs(snake_x - apple_x) + abs(snake_y - apple_y)
+
+    def greedy_move(self):
+        """Determine the best move based on the Greedy algorithm."""
+        head_x, head_y = self.snake.x[0], self.snake.y[0]
+        apple_x, apple_y = self.apple.x, self.apple.y
+
+        # Calculate Manhattan distance for all possible moves
+        moves = {
+            "up": self.heuristic(head_x, head_y - SIZE, apple_x, apple_y),
+            "down": self.heuristic(head_x, head_y + SIZE, apple_x, apple_y),
+            "left": self.heuristic(head_x - SIZE, head_y, apple_x, apple_y),
+            "right": self.heuristic(head_x + SIZE, head_y, apple_x, apple_y),
+        }
+
+        # Find the move with the minimum distance
+        best_move = min(moves, key=moves.get)
+
+        # Update the snake's direction
+        if best_move == "up" and self.snake.direction != "down":
+            self.snake.move_up()
+        elif best_move == "down" and self.snake.direction != "up":
+            self.snake.move_down()
+        elif best_move == "left" and self.snake.direction != "right":
+            self.snake.move_left()
+        elif best_move == "right" and self.snake.direction != "left":
+            self.snake.move_right()
+
+    
+    def dfs_move(self):
+        visited = set()
+        stack = deque([(self.snake.x[0], self.snake.y[0], self.snake.direction)])
+
+        while stack:
+            x, y, direction = stack.pop()
+            if (x, y) in visited:
+                continue
+            visited.add((x, y))
+
+            if x == self.apple.x and y == self.apple.y:
+                self.snake.direction = direction
+                return
+
+            for new_direction, (dx, dy) in [("up", (0, -SIZE)), ("down", (0, SIZE)), ("left", (-SIZE, 0)), ("right", (SIZE, 0))]:
+                new_x, new_y = x + dx, y + dy
+                if 0 <= new_x < 1000 and 0 <= new_y < 800 and (new_x, new_y) not in visited:
+                    stack.append((new_x, new_y, new_direction))
+
+ 
+    def check_corner_collision(self):
+        head_x, head_y = self.snake.x[0], self.snake.y[0]
+        screen_width = 1000
+        screen_height = 800
+
+        # Check if the snake's head is at any of the edge points, including the exact boundaries
+        if head_x < 0 or head_x >= screen_width:  # Left or right edges
+            return True
+
+        if head_y < 0 or head_y >= screen_height:  # Top or bottom edges
+            return True   
+
+        return False
+
+
+
+    
     def play(self):
+        """Play the game where the user controls the snake."""
         self.snake.walk()
         self.apple.draw()
         self.display_score()
         pygame.display.flip()
+
+        if self.check_corner_collision():
+            raise Exception("Game Over")
+
+        # Check collision with apple
+        if self.is_collision(self.snake.x[0], self.snake.y[0], self.apple.x, self.apple.y):
+            self.snake.increase_length()
+            self.apple.move()
         
+        # Check collision with itself (only if snake length > 3)
+        if self.snake.length > 3:
+            for i in range(3, self.snake.length):
+                if self.is_collision(self.snake.x[0], self.snake.y[0], self.snake.x[i], self.snake.y[i]):
+                    raise Exception()
+
+    def play_algorithm(self):
+        """Play the game using the Greedy algorithm."""
+        if self.is_algorithm_mode == "greedy":
+            self.greedy_move()
+        if self.is_algorithm_mode == "dfs":
+            self.dfs_move()
+        
+        self.snake.walk()
+        self.apple.draw()
+        self.display_score()
+        pygame.display.flip()
+
+        
+        if self.check_corner_collision():
+            raise Exception("Game Over") 
+
+
         # Check collision with apple
         if self.is_collision(self.snake.x[0], self.snake.y[0], self.apple.x, self.apple.y):
             self.snake.increase_length()
@@ -107,58 +214,103 @@ class Game:
                 if self.is_collision(self.snake.x[0], self.snake.y[0], self.snake.x[i], self.snake.y[i]):
                     raise Exception("Game Over")
 
-    def display_score(self):
-        font = pygame.font.SysFont("arial", 30)
-        score = font.render(f"Score: {self.snake.length - 1}", True, (5, 5, 5))  # Display score as length - 1
-        self.surface.blit(score, (800, 10))
 
-    def show_game_over(self):
-        self.surface.fill((9, 33, 84))
-        font = pygame.font.SysFont("arial", 30)
-        line1 = font.render(f"Game Over! Your score is {self.snake.length - 1}", True, (255, 255, 255))
-        self.surface.blit(line1, (200, 300))
-        line2 = font.render("To play again, press Enter. To exit, press Escape!", True, (255, 255, 255))
-        self.surface.blit(line2, (200, 350))
-        pygame.display.flip()
+    def handle_user_input(self, event):
+            """Handle user input to control snake's movement."""
+            if event.key == K_UP and self.snake.direction != "down":
+                self.snake.move_up()
+            elif event.key == K_DOWN and self.snake.direction != "up":
+                self.snake.move_down()
+            elif event.key == K_LEFT and self.snake.direction != "right":
+                self.snake.move_left()
+            elif event.key == K_RIGHT and self.snake.direction != "left":
+                self.snake.move_right()
 
     def reset(self):
-        self.snake = Snake(self.surface, 1)
-        self.apple = Apple(self.surface)
+            """Reset the game."""
+            self.snake = Snake(self.surface, 1)
+            self.apple = Apple(self.surface)
 
     def run(self):
-        running = True
-        pause = False
+            """Main game loop."""
+            running = True
+            pause = False
 
-        while running:
+            while running:
+                for event in pygame.event.get():
+                    if event.type == KEYDOWN:
+                        if event.key == K_ESCAPE:
+                            running = False
+                        elif event.key == K_RETURN:
+                            pause = False
+                        elif not pause and self.is_algorithm_mode == "manual":
+                            self.handle_user_input(event)  # Only process user input when not in algorithm mode
+                    elif event.type == QUIT:
+                        running = False
+
+                try:
+                    if not pause:
+                        if self.is_algorithm_mode == "manual":
+                            self.play()  # User controls the snake
+                        elif self.is_algorithm_mode == "greedy":
+                            self.play_algorithm()  # Greedy algorithm controls the snake
+                        elif self.is_algorithm_mode == "dfs":
+                            self.play_algorithm() 
+                except Exception as e:
+                    self.show_game_over()
+                    pause = True
+                    self.reset()
+
+                time.sleep(0.09)
+
+    def display_score(self):
+            font = pygame.font.SysFont("arial", 30)
+            score = font.render(f"Score: {self.snake.length - 1}", True, (5, 5, 5))  # Display score as length - 1
+            self.surface.blit(score, (800, 10))
+
+    def start_game_mode(self):
+        """Ask the user to choose between manual control or the Greedy algorithm."""
+        # Set the background color for the start screen
+        self.surface.fill((50, 50, 150))  # A different color, e.g., dark blue
+        pygame.display.flip()
+
+        # Define font and render multi-line text
+        font = pygame.font.SysFont("arial", 30)
+        line1 = font.render("Press Enter to Play Manually", True, (255, 255, 255))
+        line2 = font.render("Press G to Play with Greedy", True, (255, 255, 255))
+        line3 = font.render("Press D to Play with DFS", True, (255, 255, 255))
+
+        # Display the text on separate lines
+        self.surface.blit(line1, (250, 400)) 
+        self.surface.blit(line2, (250, 350))  
+        self.surface.blit(line3, (250, 450))
+        pygame.display.flip()
+
+        waiting_for_input = True
+        while waiting_for_input:
             for event in pygame.event.get():
                 if event.type == KEYDOWN:
-                    if event.key == K_ESCAPE:
-                        running = False
-                    
-                    if event.key == K_RETURN:
-                        pause = False
-                    
-                    if not pause:
-                        if event.key == K_UP and self.snake.direction != "down":
-                            self.snake.move_up()
-                        if event.key == K_DOWN and self.snake.direction != "up":
-                            self.snake.move_down()
-                        if event.key == K_LEFT and self.snake.direction != "right":
-                            self.snake.move_left()
-                        if event.key == K_RIGHT and self.snake.direction != "left":
-                            self.snake.move_right()
+                    if event.key == K_RETURN:  # User chooses to play manually
+                        self.is_algorithm_mode = "manual"
+                        waiting_for_input = False
+                    elif event.unicode == "g":  # User chooses to play using Greedy search
+                        self.is_algorithm_mode = "greedy"
+                        waiting_for_input = False
+                    elif event.unicode == "d":  # User chooses to play using Greedy search
+                        self.is_algorithm_mode = "dfs"
+                        waiting_for_input = False
                 elif event.type == QUIT:
-                    running = False
+                    waiting_for_input = False
 
-            try:
-                if not pause:
-                    self.play()
-            except Exception as e:
-                self.show_game_over()
-                pause = True
-                self.reset()
-            
-            time.sleep(0.07)
+    def show_game_over(self):
+            self.surface.fill((9, 33, 84))
+            font = pygame.font.SysFont("arial", 30)
+            line1 = font.render(f"Game Over! Your score is {self.snake.length - 1}", True, (255, 255, 255))
+            self.surface.blit(line1, (200, 300))
+            line2 = font.render("To play again, press Enter. To exit, press Escape!", True, (255, 255, 255))
+            self.surface.blit(line2, (200, 350))
+            pygame.display.flip()
+
 
 
     
