@@ -5,7 +5,7 @@ import random
 
 SIZE = 40
 BACKGROUND_COLOR = (105, 163, 47)
-
+dscsdcs
 
 class Apple:
     def __init__(self, parent_screen) -> None:
