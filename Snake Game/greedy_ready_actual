@@ -2,10 +2,11 @@ import pygame
 from pygame.locals import *
 import time
 import random
+from collections import deque
 
 SIZE = 40
 BACKGROUND_COLOR = (105, 163, 47)
-dscsdcs
+
 
 class Apple:
     def __init__(self, parent_screen) -> None:
@@ -87,7 +88,7 @@ class Game:
         self.snake.draw()
         self.apple = Apple(self.surface)
         self.apple.draw()
-        self.is_algorithm_mode = False  # Default to user control
+        self.is_algorithm_mode = "manual"  # Default to user control
         self.start_game_mode()  # Prompt for mode selection at the start
 
     def start_game_mode(self):
@@ -100,10 +101,12 @@ class Game:
         font = pygame.font.SysFont("arial", 30)
         line1 = font.render("Press Enter to Play Manually", True, (255, 255, 255))
         line2 = font.render("Press G to Play with Greedy", True, (255, 255, 255))
+        line3 = font.render("Press D to Play with DFS", True, (255, 255, 255))
 
         # Display the text on separate lines
-        self.surface.blit(line1, (250, 400))  # Position the first line
-        self.surface.blit(line2, (250, 350))  # Position the second line
+        self.surface.blit(line1, (250, 400)) 
+        self.surface.blit(line2, (250, 350))  
+        self.surface.blit(line3, (250, 450))
         pygame.display.flip()
 
         waiting_for_input = True
@@ -111,10 +114,13 @@ class Game:
             for event in pygame.event.get():
                 if event.type == KEYDOWN:
                     if event.key == K_RETURN:  # User chooses to play manually
-                        self.is_algorithm_mode = False
+                        self.is_algorithm_mode = "manual"
                         waiting_for_input = False
                     elif event.unicode == "g":  # User chooses to play using Greedy search
-                        self.is_algorithm_mode = True
+                        self.is_algorithm_mode = "greedy"
+                        waiting_for_input = False
+                    elif event.unicode == "d":  # User chooses to play using Greedy search
+                        self.is_algorithm_mode = "dfs"
                         waiting_for_input = False
                 elif event.type == QUIT:
                     waiting_for_input = False
@@ -154,6 +160,26 @@ class Game:
             self.snake.move_left()
         elif best_move == "right" and self.snake.direction != "left":
             self.snake.move_right()
+
+    def dfs_move(self):
+        """Control the snake using DFS."""
+        visited = set()
+        stack = deque([(self.snake.x[0], self.snake.y[0], self.snake.direction)])
+
+        while stack:
+            x, y, direction = stack.pop()
+            if (x, y) in visited:
+                continue
+            visited.add((x, y))
+
+            if x == self.apple.x and y == self.apple.y:
+                self.snake.direction = direction
+                return
+
+            for new_direction, (dx, dy) in [("up", (0, -SIZE)), ("down", (0, SIZE)), ("left", (-SIZE, 0)), ("right", (SIZE, 0))]:
+                new_x, new_y = x + dx, y + dy
+                if 0 <= new_x < 1000 and 0 <= new_y < 800 and (new_x, new_y) not in visited:
+                    stack.append((new_x, new_y, new_direction))
 
     def check_corner_collision(self):
         head_x, head_y = self.snake.x[0], self.snake.y[0]
@@ -196,7 +222,11 @@ class Game:
 
     def play_greedy(self):
         """Play the game using the Greedy algorithm."""
-        self.greedy_move()  # Use the Greedy algorithm to decide the next move
+        if self.is_algorithm_mode == "greedy":
+            self.greedy_move()
+        if self.is_algorithm_mode == "dfs":
+            self.dfs_move()
+        
         self.snake.walk()
         self.apple.draw()
         self.display_score()
@@ -247,17 +277,19 @@ class Game:
                             running = False
                         elif event.key == K_RETURN:
                             pause = False
-                        elif not pause and not self.is_algorithm_mode:
+                        elif not pause and self.is_algorithm_mode == "manual":
                             self.handle_user_input(event)  # Only process user input when not in algorithm mode
                     elif event.type == QUIT:
                         running = False
 
                 try:
                     if not pause:
-                        if self.is_algorithm_mode:
-                            self.play_greedy()  # Algorithm controls the snake
-                        else:
+                        if self.is_algorithm_mode == "manual":
                             self.play()  # User controls the snake
+                        elif self.is_algorithm_mode == "greedy":
+                            self.play_greedy()  # Greedy algorithm controls the snake
+                        elif self.is_algorithm_mode == "dfs":
+                            self.play_greedy() 
                 except Exception as e:
                     self.show_game_over()
                     pause = True
