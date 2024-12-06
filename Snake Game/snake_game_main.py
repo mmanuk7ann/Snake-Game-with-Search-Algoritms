@@ -3,6 +3,7 @@ from pygame.locals import *
 import time
 import random
 from collections import deque
+from queue import PriorityQueue
 
 SIZE = 40
 BACKGROUND_COLOR = (105, 163, 47)
@@ -100,7 +101,13 @@ class Game:
     def heuristic(self, snake_x, snake_y, apple_x, apple_y):
         """Calculate Manhattan distance between the snake's head and the apple."""
         return abs(snake_x - apple_x) + abs(snake_y - apple_y)
+    
+    def heuristic_a_star(self, snake_x, snake_y, apple_x, apple_y):
+        h = abs(snake_x - apple_x) + abs(snake_y - apple_y)
+        g = h - 1
+        return h + g 
 
+    
     def greedy_move(self):
         """Determine the best move based on the Greedy algorithm."""
         head_x, head_y = self.snake.x[0], self.snake.y[0]
@@ -127,7 +134,61 @@ class Game:
         elif best_move == "right" and self.snake.direction != "left":
             self.snake.move_right()
 
-    
+    from queue import PriorityQueue
+
+    def a_star_move(self):
+        """Control the snake using an enhanced A* algorithm."""
+        start = (self.snake.x[0], self.snake.y[0])  # Starting position (snake's head)
+        goal = (self.apple.x, self.apple.y)  # Goal position (apple)
+
+        # Priority queue: stores (f_cost, g_cost, (x, y), direction, path)
+        open_list = PriorityQueue()
+        open_list.put((0, 0, start, None, []))  # Initialize with starting position
+
+        visited = set()  # Track visited nodes to avoid loops
+        body_nodes = set(zip(self.snake.x[1:], self.snake.y[1:]))  # Body nodes to avoid
+
+        while not open_list.empty():
+            f_cost, g_cost, (current_x, current_y), direction, path = open_list.get()
+
+            # If the goal is reached, update the snake's direction and move
+            if (current_x, current_y) == goal:
+                if path:
+                    # Follow the first step in the path to avoid direct moves
+                    next_step = path[0]
+                    if next_step[1] == "up":
+                        self.snake.move_up()
+                    elif next_step[1] == "down":
+                        self.snake.move_down()
+                    elif next_step[1] == "left":
+                        self.snake.move_left()
+                    elif next_step[1] == "right":
+                        self.snake.move_right()
+                return
+
+            # Mark current node as visited
+            visited.add((current_x, current_y))
+
+            # Explore neighbors
+            for new_direction, (dx, dy) in [("up", (0, -SIZE)), ("down", (0, SIZE)), ("left", (-SIZE, 0)), ("right", (SIZE, 0))]:
+                new_x, new_y = current_x + dx, current_y + dy
+
+                # Skip out-of-bounds or already visited nodes
+                if not (0 <= new_x < 1000 and 0 <= new_y < 800):
+                    continue
+                if (new_x, new_y) in visited or (new_x, new_y) in body_nodes:
+                    continue
+
+                # Calculate costs
+                new_g_cost = g_cost + 1  # Increment by 1 for each move
+                h_cost = abs(new_x - goal[0]) + abs(new_y - goal[1])  # Manhattan heuristic
+                f_cost = new_g_cost + h_cost
+
+                # Add to priority queue
+                open_list.put((f_cost, new_g_cost, (new_x, new_y), new_direction, path + [((new_x, new_y), new_direction)]))
+
+
+
     def dfs_move(self):
         visited = set()
         stack = deque([(self.snake.x[0], self.snake.y[0], self.snake.direction)])
@@ -171,7 +232,7 @@ class Game:
         self.apple.draw()
         self.display_score()
         pygame.display.flip()
-
+        
         if self.check_corner_collision():
             raise Exception("Game Over")
 
@@ -192,6 +253,8 @@ class Game:
             self.greedy_move()
         if self.is_algorithm_mode == "dfs":
             self.dfs_move()
+        if self.is_algorithm_mode == "a*":
+            self.a_star_move()
         
         self.snake.walk()
         self.apple.draw()
@@ -256,6 +319,8 @@ class Game:
                             self.play_algorithm()  # Greedy algorithm controls the snake
                         elif self.is_algorithm_mode == "dfs":
                             self.play_algorithm() 
+                        elif self.is_algorithm_mode == "a*":
+                            self.play_algorithm() 
                 except Exception as e:
                     self.show_game_over()
                     pause = True
@@ -279,11 +344,13 @@ class Game:
         line1 = font.render("Press Enter to Play Manually", True, (255, 255, 255))
         line2 = font.render("Press G to Play with Greedy", True, (255, 255, 255))
         line3 = font.render("Press D to Play with DFS", True, (255, 255, 255))
+        line4 = font.render("Press A to Play with A*", True, (255, 255, 255))
 
         # Display the text on separate lines
-        self.surface.blit(line1, (250, 400)) 
-        self.surface.blit(line2, (250, 350))  
+        self.surface.blit(line1, (250, 350)) 
+        self.surface.blit(line2, (250, 400))  
         self.surface.blit(line3, (250, 450))
+        self.surface.blit(line4, (250, 500))
         pygame.display.flip()
 
         waiting_for_input = True
@@ -296,8 +363,11 @@ class Game:
                     elif event.unicode == "g":  # User chooses to play using Greedy search
                         self.is_algorithm_mode = "greedy"
                         waiting_for_input = False
-                    elif event.unicode == "d":  # User chooses to play using Greedy search
+                    elif event.unicode == "d":  
                         self.is_algorithm_mode = "dfs"
+                        waiting_for_input = False
+                    elif event.unicode == "a":  
+                        self.is_algorithm_mode = "a*"
                         waiting_for_input = False
                 elif event.type == QUIT:
                     waiting_for_input = False
