@@ -3,29 +3,30 @@ from pygame.locals import *
 import time
 import random
 from collections import deque
-from queue import PriorityQueue
 
 SIZE = 40
 BACKGROUND_COLOR = (105, 163, 47)
 
 
 class Apple:
-    def __init__(self, parent_screen) -> None:
+    def __init__(self, parent_screen, snake) -> None:
         self.image = pygame.image.load("resources/apple.jpg").convert()
         self.parent_screen = parent_screen
+        self.snake = snake  # Pass the snake object for access to its coordinates
         self.move()
     
     def draw(self):
-        self.parent_screen.blit(self.image,(self.x, self.y))
+        self.parent_screen.blit(self.image, (self.x, self.y))
         pygame.display.flip()
 
     def move(self):
-        snake_body = set(zip(self.parent_screen.snake.x, self.parent_screen.snake.y))  # Get the snake's body as a set of tuples
         while True:
             self.x = random.randint(0, 23) * SIZE
             self.y = random.randint(0, 18) * SIZE
-            if (self.x, self.y) not in snake_body:  # Ensure the new position is not in the snake's body
+            # Ensure the apple does not spawn on the snake's body
+            if (self.x, self.y) not in zip(self.snake.x, self.snake.y):
                 break
+
 
 
 
@@ -90,7 +91,7 @@ class Game:
         self.surface.fill(BACKGROUND_COLOR)
         self.snake = Snake(self.surface, 1)
         self.snake.draw()
-        self.apple = Apple(self.surface)
+        self.apple = Apple(self.surface, self.snake) 
         self.apple.draw()
         self.is_algorithm_mode = "manual"  # Default to user control
         self.start_game_mode()  # Prompt for mode selection at the start
@@ -293,41 +294,44 @@ class Game:
     def reset(self):
             """Reset the game."""
             self.snake = Snake(self.surface, 1)
-            self.apple = Apple(self.surface)
+            self.apple = Apple(self.surface, self.snake) 
 
     def run(self):
-            """Main game loop."""
-            running = True
-            pause = False
 
-            while running:
-                for event in pygame.event.get():
-                    if event.type == KEYDOWN:
-                        if event.key == K_ESCAPE:
-                            running = False
-                        elif event.key == K_RETURN:
-                            pause = False
-                        elif not pause and self.is_algorithm_mode == "manual":
-                            self.handle_user_input(event)  # Only process user input when not in algorithm mode
-                    elif event.type == QUIT:
-                        running = False
+        running = True
+        pause = False
 
-                try:
-                    if not pause:
-                        if self.is_algorithm_mode == "manual":
-                            self.play()  # User controls the snake
-                        elif self.is_algorithm_mode == "greedy":
-                            self.play_algorithm()  # Greedy algorithm controls the snake
-                        elif self.is_algorithm_mode == "dfs":
-                            self.play_algorithm() 
-                        elif self.is_algorithm_mode == "a*":
-                            self.play_algorithm() 
-                except Exception as e:
-                    self.show_game_over()
-                    pause = True
-                    self.reset()
+        while running:
+            for event in pygame.event.get():
+                if event.type == KEYDOWN:
+                    if event.key == K_ESCAPE:
+                        running = False  # Exit the game
+                    elif event.key == K_RETURN:
+                        pause = False  # Unpause the game
+                    elif not pause and self.is_algorithm_mode == "manual":
+                        self.handle_user_input(event)  # Process user input when not in algorithm mode
+                elif event.type == QUIT:
+                    running = False  # Exit the game
 
-                time.sleep(0.09)
+            try:
+                if not pause:
+                    if self.is_algorithm_mode == "manual":
+                        self.play()  # User controls the snake
+                    elif self.is_algorithm_mode == "greedy":
+                        self.play_algorithm()  # Greedy algorithm controls the snake
+                    elif self.is_algorithm_mode == "dfs":
+                        self.play_algorithm()  # DFS algorithm controls the snake
+                    elif self.is_algorithm_mode == "a*":
+                        self.play_algorithm()  # A* algorithm controls the snake
+
+            except Exception as e:
+                self.show_game_over()  # Show game over screen when an exception occurs
+                pause = True  # Pause the game
+                self.reset()  # Reset the game state to the starting condition
+                continue  # Skip further checks and return to the game loop
+
+            time.sleep(0.09)
+
 
     def display_score(self):
             font = pygame.font.SysFont("arial", 30)
