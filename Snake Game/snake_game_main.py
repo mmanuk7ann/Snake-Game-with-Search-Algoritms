@@ -102,10 +102,10 @@ class Game:
         """Calculate Manhattan distance between the snake's head and the apple."""
         return abs(snake_x - apple_x) + abs(snake_y - apple_y)
     
-    def heuristic_a_star(self, snake_x, snake_y, apple_x, apple_y):
-        h = abs(snake_x - apple_x) + abs(snake_y - apple_y)
-        g = h - 1
-        return h + g 
+    # def heuristic_a_star(self, snake_x, snake_y, apple_x, apple_y):
+    #     h = abs(snake_x - apple_x) + abs(snake_y - apple_y)
+    #     g = h - 1
+    #     return h + g 
 
     
     def greedy_move(self):
@@ -134,58 +134,60 @@ class Game:
         elif best_move == "right" and self.snake.direction != "left":
             self.snake.move_right()
 
-    from queue import PriorityQueue
 
     def a_star_move(self):
-        """Control the snake using an enhanced A* algorithm."""
-        start = (self.snake.x[0], self.snake.y[0])  # Starting position (snake's head)
-        goal = (self.apple.x, self.apple.y)  # Goal position (apple)
+        start = (self.snake.x[0], self.snake.y[0])
+        goal = (self.apple.x, self.apple.y)
 
-        # Priority queue: stores (f_cost, g_cost, (x, y), direction, path)
-        open_list = PriorityQueue()
-        open_list.put((0, 0, start, None, []))  # Initialize with starting position
+        open_list = {start: (0, [])}  # {node: (f_cost, path)}
+        visited = set()
+        body_nodes = set(zip(self.snake.x[1:], self.snake.y[1:]))
 
-        visited = set()  # Track visited nodes to avoid loops
-        body_nodes = set(zip(self.snake.x[1:], self.snake.y[1:]))  # Body nodes to avoid
+        directions = {
+            "up": (0, -SIZE),
+            "down": (0, SIZE),
+            "left": (-SIZE, 0),
+            "right": (SIZE, 0),
+        }
 
-        while not open_list.empty():
-            f_cost, g_cost, (current_x, current_y), direction, path = open_list.get()
+        while open_list:
+            # Find the node with the lowest f_cost
+            current, (f_cost, path) = min(open_list.items(), key=lambda x: x[1][0])
+            del open_list[current]
 
-            # If the goal is reached, update the snake's direction and move
-            if (current_x, current_y) == goal:
+            if current == goal:
                 if path:
-                    # Follow the first step in the path to avoid direct moves
-                    next_step = path[0]
-                    if next_step[1] == "up":
+                    next_direction = path[0]
+                    if next_direction == "up":
                         self.snake.move_up()
-                    elif next_step[1] == "down":
+                    elif next_direction == "down":
                         self.snake.move_down()
-                    elif next_step[1] == "left":
+                    elif next_direction == "left":
                         self.snake.move_left()
-                    elif next_step[1] == "right":
+                    elif next_direction == "right":
                         self.snake.move_right()
                 return
 
-            # Mark current node as visited
-            visited.add((current_x, current_y))
+            visited.add(current)
 
-            # Explore neighbors
-            for new_direction, (dx, dy) in [("up", (0, -SIZE)), ("down", (0, SIZE)), ("left", (-SIZE, 0)), ("right", (SIZE, 0))]:
-                new_x, new_y = current_x + dx, current_y + dy
+            for direction, (dx, dy) in directions.items():
+                neighbor = (current[0] + dx, current[1] + dy)
 
-                # Skip out-of-bounds or already visited nodes
-                if not (0 <= new_x < 1000 and 0 <= new_y < 800):
+                # Validate move
+                if not (0 <= neighbor[0] < 1000 and 0 <= neighbor[1] < 800):
                     continue
-                if (new_x, new_y) in visited or (new_x, new_y) in body_nodes:
+                if neighbor in visited or neighbor in body_nodes:
                     continue
 
-                # Calculate costs
-                new_g_cost = g_cost + 1  # Increment by 1 for each move
-                h_cost = abs(new_x - goal[0]) + abs(new_y - goal[1])  # Manhattan heuristic
-                f_cost = new_g_cost + h_cost
+                g_cost = len(path) + 1
+                h_cost = abs(neighbor[0] - goal[0]) + abs(neighbor[1] - goal[1])
+                f_cost = g_cost + h_cost
 
-                # Add to priority queue
-                open_list.put((f_cost, new_g_cost, (new_x, new_y), new_direction, path + [((new_x, new_y), new_direction)]))
+                # Update the open list
+                if neighbor not in open_list or open_list[neighbor][0] > f_cost:
+                    open_list[neighbor] = (f_cost, path + [direction])
+
+
 
 
 
