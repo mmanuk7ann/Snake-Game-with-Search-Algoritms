@@ -1,0 +1,303 @@
+import pygame
+from pygame.locals import *
+import time
+import random
+
+SIZE = 40
+BACKGROUND_COLOR = (105, 163, 47)
+
+
+class Apple:
+    def __init__(self, parent_screen) -> None:
+        self.image = pygame.image.load("resources/apple.jpg").convert()
+        self.parent_screen = parent_screen
+        self.move()
+    
+    def draw(self):
+        self.parent_screen.blit(self.image,(self.x, self.y))
+        pygame.display.flip()
+
+    def move(self):
+        self.x = random.randint(0,23)*SIZE
+        self.y = random.randint(0,18)*SIZE
+
+
+class Snake:
+    def __init__(self, parent_screen, length):
+        self.parent_screen = parent_screen
+        self.block = pygame.image.load("resources/block.jpg").convert()
+        self.length = length
+        self.x = [random.randint(0, 24) * SIZE] * length
+        self.y = [random.randint(0, 19) * SIZE] * length
+        self.direction = random.choice(["down", "up", "left", "right"])
+        
+    # def heruistic(self, apple_x, apple_y):
+    #     return abs(self.x[0] - apple_x) + abs(self.y[0] - apple_y)
+    
+    # def greedy_move(self, apple_x, apple_y):
+    #     moves = {
+    #         "up": (self.x[0], self.y[0] - SIZE),
+    #         "down": (self.x[0], self.y[0] + SIZE),
+    #         "left": (self.x[0] - SIZE, self.y[0]),
+    #         "right": (self.x[0] + SIZE, self.y[0]),
+    #     }
+
+    #     valid_moves = {}
+    #     for move, (new_x, new_y) in moves.items():
+    #         if (
+    #             new_x >= 0 and new_x < self.parent_screen.get_width() and
+    #             new_y >= 0 and new_y < self.parent_screen.get_height() and
+    #             (new_x, new_y) not in zip(self.x[1:], self.y[1:])
+    #         ):
+    #             valid_moves[move] = (new_x, new_y)
+        
+    #     best_move = None
+    #     min_distance = float("inf")
+    #     for move, (new_x, new_y) in valid_moves.items():
+    #         distance = abs(new_x - apple_x) + abs(new_y - apple_y)
+    #         if distance < min_distance:
+    #             min_distance = distance
+    #             best_move = move
+
+    #     # Update direction
+    #     if best_move:
+    #         self.direction = best_move
+
+    def draw(self):
+        self.parent_screen.fill(BACKGROUND_COLOR)
+        for i in range(self.length):
+            self.parent_screen.blit(self.block,(self.x[i], self.y[i]))
+        pygame.display.flip()
+
+    def move_left(self):
+        self.direction = "left"
+
+    def move_right(self):
+        self.direction = "right"
+
+    def move_up(self):
+        self.direction = "up"
+
+    def move_down(self):
+        self.direction = "down"
+
+    def walk(self):
+        for i in range(self.length - 1, 0, -1):
+            self.x[i] = self.x[i - 1]
+            self.y[i] = self.y[i - 1]
+
+        if self.direction == "up":
+            self.y[0] -= SIZE
+        if self.direction == "down":
+            self.y[0] += SIZE
+        if self.direction == "left":
+            self.x[0] -= SIZE
+        if self.direction == "right":
+            self.x[0] += SIZE
+        
+        self.x[0] %= 1000 
+        self.y[0] %= 800
+        
+        self.draw()
+
+    def increase_length(self):
+        self.length += 1
+        self.x.append(-1)
+        self.y.append(-1)
+
+    
+
+
+    
+
+class Game:
+    def __init__(self) -> None:
+        pygame.init()
+        self.surface = pygame.display.set_mode((1000, 800))
+        self.surface.fill(BACKGROUND_COLOR)
+        self.snake = Snake(self.surface, 1)
+        self.snake.draw()
+        self.apple = Apple(self.surface)
+        self.apple.draw()
+        self.is_algorithm_mode = False  # Default to user control
+        self.start_game_mode()  # Prompt for mode selection at the start
+
+    def start_game_mode(self):
+        """Ask user to choose between manual control or Greedy algorithm."""
+        font = pygame.font.SysFont("arial", 30)
+        prompt = font.render("Press 1 to Play Manually, 2 to Play with Greedy", True, (255, 255, 255))
+        self.surface.blit(prompt, (200, 300))
+        pygame.display.flip()
+
+        waiting_for_input = True
+        while waiting_for_input:
+            for event in pygame.event.get():
+                if event.type == KEYDOWN:
+                    if event.key == K_1:  # User chooses to play manually
+                        self.is_algorithm_mode = False
+                        waiting_for_input = False
+                    elif event.key == K_2:  # User chooses to play using Greedy search
+                        self.is_algorithm_mode = True
+                        waiting_for_input = False
+                elif event.type == QUIT:
+                    waiting_for_input = False
+
+    def is_collision(self, x1, y1, x2, y2):
+        if x1 >= x2 and x1 < x2 + SIZE:
+            if y1 >= y2 and y1 < y2 + SIZE:
+                return True
+        return False
+
+    def heuristic(self, snake_x, snake_y, apple_x, apple_y):
+        """Calculate Manhattan distance between the snake's head and the apple."""
+        return abs(snake_x - apple_x) + abs(snake_y - apple_y)
+
+    def greedy_move(self):
+        """Determine the best move based on the Greedy algorithm."""
+        head_x, head_y = self.snake.x[0], self.snake.y[0]
+        apple_x, apple_y = self.apple.x, self.apple.y
+
+        # Calculate Manhattan distance for all possible moves
+        moves = {
+            "up": self.heuristic(head_x, head_y - SIZE, apple_x, apple_y),
+            "down": self.heuristic(head_x, head_y + SIZE, apple_x, apple_y),
+            "left": self.heuristic(head_x - SIZE, head_y, apple_x, apple_y),
+            "right": self.heuristic(head_x + SIZE, head_y, apple_x, apple_y),
+        }
+
+        # Find the move with the minimum distance
+        best_move = min(moves, key=moves.get)
+
+        # Update the snake's direction
+        if best_move == "up" and self.snake.direction != "down":
+            self.snake.move_up()
+        elif best_move == "down" and self.snake.direction != "up":
+            self.snake.move_down()
+        elif best_move == "left" and self.snake.direction != "right":
+            self.snake.move_left()
+        elif best_move == "right" and self.snake.direction != "left":
+            self.snake.move_right()
+
+    def check_corner_collision(self):
+        """Check if the snake's head is at a corner point."""
+        head_x, head_y = self.snake.x[0], self.snake.y[0]
+        # corners = [(0, 0), (0, 800), (1000, 0), (1000, 800)]
+        # if (head_x, head_y) in corners:
+        #     raise Exception("Game Over - Snake hit a corner")
+        if head_x < 0 or head_x >= 1000 or head_y < 0 or head_y >= 1000:
+            raise Exception("Game Over - Snake hit a corner")
+
+
+    def play(self):
+        """Play the game where the user controls the snake."""
+        self.snake.walk()
+        self.apple.draw()
+        self.display_score()
+        pygame.display.flip()
+        
+        # Check collision with apple
+        if self.is_collision(self.snake.x[0], self.snake.y[0], self.apple.x, self.apple.y):
+            self.snake.increase_length()
+            self.apple.move()
+        
+        # Check collision with itself (only if snake length > 3)
+        if self.snake.length > 3:
+            for i in range(3, self.snake.length):
+                if self.is_collision(self.snake.x[0], self.snake.y[0], self.snake.x[i], self.snake.y[i]):
+                    raise Exception("Game Over")
+
+    def play_greedy(self):
+        """Play the game using the Greedy algorithm."""
+        self.greedy_move()  # Use the Greedy algorithm to decide the next move
+        self.snake.walk()
+        self.apple.draw()
+        self.display_score()
+        pygame.display.flip()
+
+        # Check for corner collision in Greedy mode
+        self.check_corner_collision()
+
+        # Check collision with apple
+        if self.is_collision(self.snake.x[0], self.snake.y[0], self.apple.x, self.apple.y):
+            self.snake.increase_length()
+            self.apple.move()
+        
+        # Check collision with itself (only if snake length > 3)
+        if self.snake.length > 3:
+            for i in range(3, self.snake.length):
+                if self.is_collision(self.snake.x[0], self.snake.y[0], self.snake.x[i], self.snake.y[i]):
+                    raise Exception("Game Over")
+
+    def handle_user_input(self, event):
+        """Handle user input to control snake's movement."""
+        if event.key == K_UP and self.snake.direction != "down":
+            self.snake.move_up()
+        elif event.key == K_DOWN and self.snake.direction != "up":
+            self.snake.move_down()
+        elif event.key == K_LEFT and self.snake.direction != "right":
+            self.snake.move_left()
+        elif event.key == K_RIGHT and self.snake.direction != "left":
+            self.snake.move_right()
+
+    def reset(self):
+        """Reset the game."""
+        self.snake = Snake(self.surface, 1)
+        self.apple = Apple(self.surface)
+
+    def run(self):
+        """Main game loop."""
+        running = True
+        pause = False
+
+        while running:
+            for event in pygame.event.get():
+                if event.type == KEYDOWN:
+                    if event.key == K_ESCAPE:
+                        running = False
+                    elif event.key == K_RETURN:
+                        pause = False
+                    elif not pause and not self.is_algorithm_mode:
+                        self.handle_user_input(event)  # Only process user input when not in algorithm mode
+                elif event.type == QUIT:
+                    running = False
+
+            try:
+                if not pause:
+                    if self.is_algorithm_mode:
+                        self.play_greedy()  # Algorithm controls the snake
+                    else:
+                        self.play()  # User controls the snake
+            except Exception as e:
+                self.show_game_over()
+                pause = True
+                self.reset()
+
+            time.sleep(0.07)
+
+    def display_score(self):
+        font = pygame.font.SysFont("arial", 30)
+        score = font.render(f"Score: {self.snake.length - 1}", True, (5, 5, 5))  # Display score as length - 1
+        self.surface.blit(score, (800, 10))
+
+    def show_game_over(self):
+        self.surface.fill((9, 33, 84))
+        font = pygame.font.SysFont("arial", 30)
+        line1 = font.render(f"Game Over! Your score is {self.snake.length - 1}", True, (255, 255, 255))
+        self.surface.blit(line1, (200, 300))
+        line2 = font.render("To play again, press Enter. To exit, press Escape!", True, (255, 255, 255))
+        self.surface.blit(line2, (200, 350))
+        pygame.display.flip()
+
+
+
+    
+
+
+if __name__ == "__main__":
+    game = Game()
+    game.run()
+
+    
+    
+
+    
