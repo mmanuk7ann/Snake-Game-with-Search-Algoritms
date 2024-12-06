@@ -1,0 +1,20 @@
+def dfs_move(self):
+    """Control the snake using DFS."""
+    visited = set()
+    stack = deque([(self.snake.x[0], self.snake.y[0], self.snake.direction)])
+
+    while stack:
+        x, y, direction = stack.pop()
+        if (x, y) in visited:
+            continue
+        visited.add((x, y))
+
+        if x == self.apple.x and y == self.apple.y:
+            self.snake.direction = direction
+            return
+
+        for new_direction, (dx, dy) in [("up", (0, -SIZE)), ("down", (0, SIZE)), ("left", (-SIZE, 0)), ("right", (SIZE, 0))]:
+            new_x, new_y = x + dx, y + dy
+            if 0 <= new_x < 1000 and 0 <= new_y < 800 and (new_x, new_y) not in visited:
+                stack.append((new_x, new_y, new_direction))
+
