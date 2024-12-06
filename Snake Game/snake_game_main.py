@@ -20,8 +20,13 @@ class Apple:
         pygame.display.flip()
 
     def move(self):
-        self.x = random.randint(0,23)*SIZE
-        self.y = random.randint(0,18)*SIZE
+        snake_body = set(zip(self.parent_screen.snake.x, self.parent_screen.snake.y))  # Get the snake's body as a set of tuples
+        while True:
+            self.x = random.randint(0, 23) * SIZE
+            self.y = random.randint(0, 18) * SIZE
+            if (self.x, self.y) not in snake_body:  # Ensure the new position is not in the snake's body
+                break
+
 
 
 class Snake:
@@ -102,12 +107,7 @@ class Game:
         """Calculate Manhattan distance between the snake's head and the apple."""
         return abs(snake_x - apple_x) + abs(snake_y - apple_y)
     
-    # def heuristic_a_star(self, snake_x, snake_y, apple_x, apple_y):
-    #     h = abs(snake_x - apple_x) + abs(snake_y - apple_y)
-    #     g = h - 1
-    #     return h + g 
-
-    
+   
     def greedy_move(self):
         """Determine the best move based on the Greedy algorithm."""
         head_x, head_y = self.snake.x[0], self.snake.y[0]
@@ -121,7 +121,6 @@ class Game:
             "right": self.heuristic(head_x + SIZE, head_y, apple_x, apple_y),
         }
 
-        # Find the move with the minimum distance
         best_move = min(moves, key=moves.get)
 
         # Update the snake's direction
