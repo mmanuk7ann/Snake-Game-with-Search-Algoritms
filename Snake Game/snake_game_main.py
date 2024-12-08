@@ -188,28 +188,6 @@ class Game:
                     open_list[neighbor] = (f_cost, path + [direction])
 
 
-
-
-
-    def dfs_move(self):
-        visited = set()
-        stack = deque([(self.snake.x[0], self.snake.y[0], self.snake.direction)])
-
-        while stack:
-            x, y, direction = stack.pop()
-            if (x, y) in visited:
-                continue
-            visited.add((x, y))
-
-            if x == self.apple.x and y == self.apple.y:
-                self.snake.direction = direction
-                return
-
-            for new_direction, (dx, dy) in [("up", (0, -SIZE)), ("down", (0, SIZE)), ("left", (-SIZE, 0)), ("right", (SIZE, 0))]:
-                new_x, new_y = x + dx, y + dy
-                if 0 <= new_x < 1000 and 0 <= new_y < 800 and (new_x, new_y) not in visited:
-                    stack.append((new_x, new_y, new_direction))
-
  
     def check_corner_collision(self):
         head_x, head_y = self.snake.x[0], self.snake.y[0]
@@ -226,10 +204,11 @@ class Game:
         return False
 
 
-
-    
     def play(self):
-        """Play the game where the user controls the snake."""
+        if self.is_algorithm_mode == "greedy":
+            self.greedy_move()
+        if self.is_algorithm_mode == "a*":
+            self.a_star_move()
         self.snake.walk()
         self.apple.draw()
         self.display_score()
@@ -248,37 +227,6 @@ class Game:
             for i in range(3, self.snake.length):
                 if self.is_collision(self.snake.x[0], self.snake.y[0], self.snake.x[i], self.snake.y[i]):
                     raise Exception()
-
-    def play_algorithm(self):
-        """Play the game using the Greedy algorithm."""
-        if self.is_algorithm_mode == "greedy":
-            self.greedy_move()
-        if self.is_algorithm_mode == "dfs":
-            self.dfs_move()
-        if self.is_algorithm_mode == "a*":
-            self.a_star_move()
-        
-        self.snake.walk()
-        self.apple.draw()
-        self.display_score()
-        pygame.display.flip()
-
-        
-        if self.check_corner_collision():
-            raise Exception("Game Over") 
-
-
-        # Check collision with apple
-        if self.is_collision(self.snake.x[0], self.snake.y[0], self.apple.x, self.apple.y):
-            self.snake.increase_length()
-            self.apple.move()
-        
-        # Check collision with itself (only if snake length > 3)
-        if self.snake.length > 3:
-            for i in range(3, self.snake.length):
-                if self.is_collision(self.snake.x[0], self.snake.y[0], self.snake.x[i], self.snake.y[i]):
-                    raise Exception("Game Over")
-
 
     def handle_user_input(self, event):
             """Handle user input to control snake's movement."""
@@ -315,14 +263,7 @@ class Game:
 
             try:
                 if not pause:
-                    if self.is_algorithm_mode == "manual":
-                        self.play()  # User controls the snake
-                    elif self.is_algorithm_mode == "greedy":
-                        self.play_algorithm()  # Greedy algorithm controls the snake
-                    elif self.is_algorithm_mode == "dfs":
-                        self.play_algorithm()  # DFS algorithm controls the snake
-                    elif self.is_algorithm_mode == "a*":
-                        self.play_algorithm()  # A* algorithm controls the snake
+                    self.play()
 
             except Exception as e:
                 self.show_game_over()  # Show game over screen when an exception occurs
@@ -330,7 +271,7 @@ class Game:
                 self.reset()  # Reset the game state to the starting condition
                 continue  # Skip further checks and return to the game loop
 
-            time.sleep(0.09)
+            time.sleep(0.07)
 
 
     def display_score(self):
@@ -339,37 +280,27 @@ class Game:
             self.surface.blit(score, (800, 10))
 
     def start_game_mode(self):
-        """Ask the user to choose between manual control or the Greedy algorithm."""
-        # Set the background color for the start screen
-        self.surface.fill((50, 50, 150))  # A different color, e.g., dark blue
+        self.surface.fill((50, 50, 150))  
         pygame.display.flip()
-
-        # Define font and render multi-line text
         font = pygame.font.SysFont("arial", 30)
         line1 = font.render("Press Enter to Play Manually", True, (255, 255, 255))
         line2 = font.render("Press G to Play with Greedy", True, (255, 255, 255))
-        line3 = font.render("Press D to Play with DFS", True, (255, 255, 255))
-        line4 = font.render("Press A to Play with A*", True, (255, 255, 255))
+        line3 = font.render("Press A to Play with A*", True, (255, 255, 255))
 
-        # Display the text on separate lines
         self.surface.blit(line1, (250, 350)) 
         self.surface.blit(line2, (250, 400))  
         self.surface.blit(line3, (250, 450))
-        self.surface.blit(line4, (250, 500))
         pygame.display.flip()
 
         waiting_for_input = True
         while waiting_for_input:
             for event in pygame.event.get():
                 if event.type == KEYDOWN:
-                    if event.key == K_RETURN:  # User chooses to play manually
+                    if event.key == K_RETURN:  
                         self.is_algorithm_mode = "manual"
                         waiting_for_input = False
-                    elif event.unicode == "g":  # User chooses to play using Greedy search
+                    elif event.unicode == "g": 
                         self.is_algorithm_mode = "greedy"
-                        waiting_for_input = False
-                    elif event.unicode == "d":  
-                        self.is_algorithm_mode = "dfs"
                         waiting_for_input = False
                     elif event.unicode == "a":  
                         self.is_algorithm_mode = "a*"
@@ -386,9 +317,6 @@ class Game:
             self.surface.blit(line2, (200, 350))
             pygame.display.flip()
 
-
-
-    
 
 
 if __name__ == "__main__":
