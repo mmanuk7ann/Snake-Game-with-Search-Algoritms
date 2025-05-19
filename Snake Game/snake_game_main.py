@@ -10,7 +10,7 @@ BACKGROUND_COLOR = (105, 163, 47)
 
 class Apple:
     def __init__(self, parent_screen, snake) -> None:
-        self.image = pygame.image.load("resources/apple.jpg").convert()
+        self.image = pygame.image.load("Snake Game/resources/apple.jpg").convert()
         self.parent_screen = parent_screen
         self.snake = snake  # Pass the snake object for access to its coordinates
         self.move()
@@ -33,7 +33,7 @@ class Apple:
 class Snake:
     def __init__(self, parent_screen, length):
         self.parent_screen = parent_screen
-        self.block = pygame.image.load("resources/block.jpg").convert()
+        self.block = pygame.image.load("Snake Game/resources/block.jpg").convert()
         self.length = length
         self.x = [random.randint(0, 24) * SIZE] * length
         self.y = [random.randint(0, 19) * SIZE] * length
